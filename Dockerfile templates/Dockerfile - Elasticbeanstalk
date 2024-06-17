@@ -1,0 +1,66 @@
+# Method: Set ENV to get the parameters from ssm, export them, and use them for building as well as store them in .env for runtime. The ENV's can be secured by patching the dockerfile in ci workflow using sed injection or trying ECS task environment variables.
+# Steps:
+    # 1. include dockerfile
+    # 2. zip the files and push to s3
+    # 3. s3 will be used as reference in cicd.
+# dockerfile implementation:
+      # install awscli - in case envrionment variables required while compiling. otherwise this step is skippable.
+      # If environment variables are only required on runtime, then use environment properties in Elastic beanstalk configuration dashboard.
+      # In the dockerfile, using ENV, insert three variables, access key, access secret, and parameter path (seperate use that can only call the parameters.)
+      # using RUN, login to AWS CLI using the ENV values, call the ssm parameter path using shell script.
+      # using RUN, save the envrionment variables in .env file in the root directory, then compile the app.
+# CI: Patch dockerfile with the ENV values. Compress the files in zip and push them in s3, then update the Elastic beanstalk environment with a new version.
+
+# Use an official Node.js image as the base image.
+FROM public.ecr.aws/docker/library/node:20.13.1-alpine3.20 AS builder
+
+ENV ACCESS_ID=value
+ENV ACCESS_SECRET=value 
+ENV SSM_PARAMETER_PATH=value
+ENV REGION=value
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy package.json and package-lock.json to the working directory
+COPY . ./
+
+# Install dependencies
+RUN apk add aws-cli &&\
+    aws --version
+  
+RUN echo "setting up aws config.." &&\
+    mkdir -p /root/.aws &&\
+    echo -e "[default]\naws_access_key_id = $ACCESS_ID\naws_secret_access_key = $ACCESS_SECRET" > /root/.aws/credentials &&\
+    echo -e "[default]\nregion = $REGION" > /root/.aws/config   
+RUN touch .env &&\
+    echo "writing Parameters to env file..."
+RUN while read -r name value; do export_string="${name##*/}=$value"; echo "$export_string" >> .env; done < <(aws ssm get-parameters-by-path --path "$SSM_PARAMETER_PATH" --region "$REGION" --with-decryption --query "Parameters[*].[Name,Value]" --output text) &&\
+    ls -a
+RUN echo "Building application.." &&\
+    npm install --force &&\
+    npm run build
+
+
+FROM public.ecr.aws/docker/library/node:20.13.1-alpine3.20
+
+WORKDIR /app
+
+COPY --from=builder /app/.next/ ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.env ./.env
+COPY --from=builder /app/.npmrc ./.npmrc
+COPY --from=builder /app/prisma ./prisma
+
+
+
+# Expose the port your app will run on
+EXPOSE 3000
+
+# Command to run the application
+CMD ["npm", "start"]
+
+
+

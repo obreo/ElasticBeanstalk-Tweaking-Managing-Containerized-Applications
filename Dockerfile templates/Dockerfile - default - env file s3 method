@@ -1,0 +1,40 @@
+# Method: SSM parameters are called by CI inside the root directory of the applciation as env file. Then dockerfile will copy it and built the application using it, then the second image will copy the rest of files excluding .env file and get pushed to ECR.
+# Docker-compose.yml file will define the image pushed and the .env file that will be used on runtime which will be included in a secured s3 image.
+# Using this method with a secured S3 bucket can be a good solution and effecient one.
+
+# Compiling Image
+FROM public.ecr.aws/docker/library/node:20.13.1-alpine3.20 AS builder
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy package.json and package-lock.json to the working directory
+COPY . ./
+
+# Building application
+RUN echo "Building application.." &&\
+    npm install --force &&\
+    npm run build
+
+# New Image excluding .env file
+FROM public.ecr.aws/docker/library/node:20.13.1-alpine3.20
+
+WORKDIR /app
+
+COPY --from=builder /app/.next/ ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.npmrc ./.npmrc
+COPY --from=builder /app/prisma ./prisma
+
+
+
+# Expose the port your app will run on
+EXPOSE 3000
+
+# Command to run the application
+CMD ["npm", "start"]
+
+
+

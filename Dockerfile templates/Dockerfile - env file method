@@ -1,0 +1,38 @@
+# Method: SSM parameters are called by CI inside the root directory of the applciation. Then dockerfile will copy it and built the application using it, then the second image will copy the rest of files including .env
+# This is not the best solution nor a secure one but considered the most effecient solution for docker application that require .env's with CI's.
+
+FROM public.ecr.aws/docker/library/node:20.13.1-alpine3.20 AS builder
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy package.json and package-lock.json to the working directory
+COPY . ./
+
+# Building application
+RUN echo "Building application.." &&\
+    npm install --force &&\
+    npm run build
+
+FROM public.ecr.aws/docker/library/node:20.13.1-alpine3.20
+
+WORKDIR /app
+
+COPY --from=builder /app/.next/ ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.env ./.env
+COPY --from=builder /app/.npmrc ./.npmrc
+COPY --from=builder /app/prisma ./prisma
+
+
+
+# Expose the port your app will run on
+EXPOSE 3000
+
+# Command to run the application
+CMD ["npm", "start"]
+
+
+

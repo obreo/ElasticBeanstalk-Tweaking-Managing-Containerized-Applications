@@ -1,0 +1,129 @@
+# For Elastic beanstalk Dockerfile from S3:
+    # This is a buildspec script that will build the nodejs source, compress it and uplode it to s3 bucket, then update the elastic beanstalk environment with it.
+    # Make sure that CodeBuild has role to access all the resources mentioned in this script so it can use aws api without authentication.
+    version: 0.2
+    env:
+      variables:
+        S3_BUCKET: "${aws_s3_bucket.bucket.bucket}"
+        S3_FOLDER: "beanstalk"
+        ZIP_FILE_NAME: "${var.name}"
+        EB_APP: "${aws_elastic_beanstalk_application.application[count.index].name}"
+        EB_ENV: "${aws_elastic_beanstalk_environment.environment[count.index].name}"
+
+    phases:
+      pre_build:
+        commands:
+          - sed -i "s|ACCESS_ID=value|ACCESS_ID=$${ACCESS_ID}|g" Dockerfile
+          - sed -i "s|ACCESS_SECRET=value|ACCESS_SECRET=$${ACCESS_SECRET}|g" Dockerfile
+          - sed -i "s|SSM_PARAMETER_PATH=value|SSM_PARAMETER_PATH=$${SSM_PARAMETER_PATH}|g" Dockerfile
+          - sed -i "s|REGION=value|REGION=$${REGION}|g" Dockerfile
+      build:
+        commands:
+          - find . -type f -exec zip $${ZIP_FILE_NAME}.zip {} +
+          - echo Pushing ZIP artifacts to S3 bucket
+          - aws s3 cp $${ZIP_FILE_NAME}.zip s3://$${S3_BUCKET}/$${S3_FOLDER}/$${ZIP_FILE_NAME}.zip
+          - echo Creating a new Elastic Beanstalk version with the new build file.
+          - aws elasticbeanstalk create-application-version --application-name $${EB_APP} --version-label $${CODEBUILD_BUILD_NUMBER} --source-bundle S3Bucket=$${S3_BUCKET},S3Key=$${S3_FOLDER}/$${ZIP_FILE_NAME}.zip
+          - echo Updating the Elastic Beanstalk environment.
+          - aws elasticbeanstalk update-environment --environment-name $${EB_ENV} --version-label $${CODEBUILD_BUILD_NUMBER}
+
+
+# ENV file method
+    # This is a buildspec script that will build the nodejs source in a dockerfile that will use .env while compiling and then push the image with .env file to ECR, compress it and uplode it to s3 bucket, then update the elastic beanstalk environment with it.
+    # Make sure that CodeBuild has role to access all the resources mentioned in this script so it can use aws api without authentication.
+    # This is a buildspec script that will build the nodejs source, compress it and uplode it to s3 bucket, then update the elastic beanstalk environment with it.
+    # Make sure that CodeBuild has role to access all the resources mentioned in this script so it can use aws api without authentication.
+
+    version: 0.2
+    env:
+      variables:
+        S3_BUCKET: "${aws_s3_bucket.bucket.bucket}"
+        S3_FOLDER: "beanstalk"
+        ZIP_FILE_NAME: "${var.name}"
+        EB_APP: "${aws_elastic_beanstalk_application.application[count.index].name}"
+        EB_ENV: "${aws_elastic_beanstalk_environment.environment[count.index].name}"
+
+    phases:
+      pre_build:
+        commands:
+          # Login to ECR
+          - echo 'Logging to ECR registry'
+          - aws ecr get-login-password --region ${var.REGION} | docker login --username AWS --password-stdin ${var.account_id}.dkr.ecr.${var.REGION}.amazonaws.com
+          # Export parameters
+          - echo 'Exporting Parameters'
+          - while read -r name value; do export_string="$${name##*/}=$value"; echo "$export_string" >> .env; done < <(aws ssm get-parameters-by-path --path "${var.parameter_path}" --with-decryption --query "Parameters[*].[Name,Value]" --output text)
+      build:
+        commands:
+          # Building image
+          - echo  'Building Image'
+          - docker build -t ${var.name} .
+
+          # Pushing Image
+          - docker tag ${var.name}:latest ${var.account_id}.dkr.ecr.${var.REGION}.amazonaws.com/${var.name}:$${CODEBUILD_BUILD_NUMBER}
+          - docker push ${var.account_id}.dkr.ecr.${var.REGION}.amazonaws.com/${var.name}:$${CODEBUILD_BUILD_NUMBER}
+          
+          # Modifying the docker-compose.yml file with the new image tag
+          - sed -i "s|<IMAGE>|${var.account_id}.dkr.ecr.${var.REGION}.amazonaws.com/${var.name}:$${CODEBUILD_BUILD_NUMBER}|g" docker-compose.yml
+      post_build:
+        commands:
+          # Pushing docker-compose.yml to S3 bucket
+          - echo Pushing docker-compose.yml to $${S3_BUCKET}/$${S3_FOLDER} bucket directory.
+          - aws s3 cp $${FILE_NAME}.yml s3://$${S3_BUCKET}/$${S3_FOLDER}/$${FILE_NAME}.yml
+          
+          # Updating Elastic Beanstalk application's version
+          - echo Creating a new Elastic Beanstalk application version
+          - aws elasticbeanstalk create-application-version --application-name $${EB_APP} --version-label $${CODEBUILD_BUILD_NUMBER} --source-bundle S3Bucket=$${S3_BUCKET},S3Key=$${S3_FOLDER}/$${FILE_NAME}.yml
+          - echo Updating the Elastic Beanstalk environment.
+          - aws elasticbeanstalk update-environment --environment-name $${EB_ENV} --version-label $${CODEBUILD_BUILD_NUMBER}
+
+
+# ENV file to s3 method
+    # This is a buildspec script that will build the nodejs source in a dockerfile that will use .env while compiling and then push the image excluding .env file to ECR, compress it and uplode it to s3 bucket using zip that contains .env and docker-compose.yml file, then update the elastic beanstalk environment with it.
+    # Make sure that CodeBuild has role to access all the resources mentioned in this script so it can use aws api without authentication.
+    # This is a buildspec script that will build the nodejs source, compress it and uplode it to s3 bucket, then update the elastic beanstalk environment with it.
+    # Make sure that CodeBuild has role to access all the resources mentioned in this script so it can use aws api without authentication.
+
+  version: 0.2
+    env:
+      variables:
+        S3_BUCKET: "${aws_s3_bucket.bucket.bucket}"
+        S3_FOLDER: "beanstalk"
+        ZIP_FILE_NAME: "${var.name}"
+        EB_APP: "${aws_elastic_beanstalk_application.application[count.index].name}"
+        EB_ENV: "${aws_elastic_beanstalk_environment.environment[count.index].name}"
+
+    phases:
+      pre_build:
+        commands:
+          # Login to ECR
+          - echo 'Logging to ECR registry'
+          - aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${var.account_id}.dkr.ecr.${var.region}.amazonaws.com
+          # Export parameters
+          - echo 'Exporting Parameters'
+          - while read -r name value; do export_string="$${name##*/}=$value"; echo "$export_string" >> .env; done < <(aws ssm get-parameters-by-path --path "${var.parameter_path}" --with-decryption --query "Parameters[*].[Name,Value]" --output text)
+      build:
+        commands:
+          # Building image
+          - echo  'Building Image'
+          - docker build -t ${var.name} .
+
+          # Pushing Image to Registry
+          - docker tag ${var.name}:latest ${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/${var.name}:$${CODEBUILD_BUILD_NUMBER}
+          - docker push ${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/${var.name}:$${CODEBUILD_BUILD_NUMBER}
+          
+          # Modifying the docker-compose.yml file with the new image tag
+          - sed -i "s|<IMAGE>|${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/${var.name}:$${CODEBUILD_BUILD_NUMBER}|g" docker-compose.yml
+
+          # Zipping docker-compose.yml with .env file before pushing to s3 bucket.
+          - zip $${FILE_NAME}.zip docker-compose.yml .env
+      post_build:
+        commands:
+          # Pushing zip file to S3 bucket
+          - echo Pushing $${FILE_NAME}.zip to $${S3_BUCKET}/$${S3_FOLDER} bucket directory.
+          - aws s3 cp $${FILE_NAME}.zip s3://$${S3_BUCKET}/$${S3_FOLDER}/$${FILE_NAME}.zip
+          
+          # Updating Elastic Beanstalk application's version
+          - echo Creating a new Elastic Beanstalk application version
+          - aws elasticbeanstalk create-application-version --application-name $${EB_APP} --version-label $${CODEBUILD_BUILD_NUMBER} --source-bundle S3Bucket=$${S3_BUCKET},S3Key=$${S3_FOLDER}/$${FILE_NAME}.zip
+          - echo Updating the Elastic Beanstalk environment.
+          - aws elasticbeanstalk update-environment --environment-name $${EB_ENV} --version-label $${CODEBUILD_BUILD_NUMBER}

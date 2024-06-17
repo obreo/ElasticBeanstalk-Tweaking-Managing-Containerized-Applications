@@ -1,0 +1,95 @@
+policy = jsonencode({
+  Version = "2012-10-17"
+  Statement = [
+    {
+      "Sid" : "AllowingaccesstoECRrepositories",
+      "Effect" : "Allow",
+      "Action" : [
+        "ecr:DescribeRepositoryCreationTemplate",
+        "ecr:GetRegistryPolicy",
+        "ecr:DescribeImageScanFindings",
+        "ecr:GetLifecyclePolicyPreview",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:DescribeRegistry",
+        "ecr:DescribePullThroughCacheRules",
+        "ecr:DescribeImageReplicationStatus",
+        "ecr:GetAuthorizationToken",
+        "ecr:ListTagsForResource",
+        "ecr:BatchGetRepositoryScanningConfiguration",
+        "ecr:GetRegistryScanningConfiguration",
+        "ecr:ValidatePullThroughCacheRule",
+        "ecr:BatchGetImage",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetRepositoryPolicy",
+        "ecr:GetLifecyclePolicy",
+        "ecr:DescribeImages",
+        "ecr:DescribeRepositories",
+        "ecr:ListImages"
+      ],
+      "Resource" : "*"
+    },
+    {
+      "Sid" : "AllowingAccessToELBResources",
+      "Effect" : "Allow",
+      "Action" : [
+        "elasticloadbalancing:DescribeLoadBalancerPolicyTypes",
+        "elasticloadbalancing:SetWebAcl",
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "elasticloadbalancing:DescribeTrustStoreAssociations",
+        "elasticloadbalancing:DescribeListeners",
+        "elasticloadbalancing:DescribeLoadBalancerPolicies",
+        "elasticloadbalancing:DescribeListenerCertificates",
+        "elasticloadbalancing:DescribeInstanceHealth",
+        "elasticloadbalancing:DescribeSSLPolicies",
+        "elasticloadbalancing:DescribeTags",
+        "elasticloadbalancing:DescribeTrustStoreRevocations",
+        "elasticloadbalancing:DescribeLoadBalancerAttributes",
+        "elasticloadbalancing:DescribeTrustStores",
+        "elasticloadbalancing:DescribeAccountLimits",
+        "elasticloadbalancing:DescribeTargetGroupAttributes",
+        "elasticloadbalancing:DescribeTargetHealth",
+        "elasticloadbalancing:DescribeTargetGroups",
+        "elasticloadbalancing:DescribeRules",
+        "elasticloadbalancing:*"
+      ],
+      "Resource" : "*"
+    },
+    {
+      "Sid" : "Additonals",
+      "Effect" : "Allow",
+      "Action" : [
+        "s3:ListAllMyBuckets",
+        "ec2:DescribeNetworkAcls",
+        "ec2:DescribeRouteTables",
+      ],
+      "Resource" : "*"
+    },
+    {
+      "Sid" : "AllowaccesstocustomS3buckett",
+      "Effect" : "Allow",
+      "Action" : [
+        "s3:PutObject",
+        "s3:GetObjectAcl",
+        "s3:GetObject",
+        "s3:GetBucketPolicy",
+        "s3:ListBucketMultipartUploads",
+        "s3:AbortMultipartUpload",
+        "s3:ListBucket",
+        "s3:DeleteObject",
+        "s3:PutObjectAcl",
+        "s3:ListMultipartUploadParts"
+      ],
+      "Resource" : [
+        "arn:aws:s3:::${var.name}.bucket",
+        "arn:aws:s3:::${var.name}.bucket/*"
+      ]
+    },
+    {
+      "Sid" : "AllowSSM",
+      "Effect" : "Allow",
+      "Action" : ["ssm:GetParametersByPath", "ssm:UpdateInstanceInformation"]
+      "Resource" : "arn:aws:ssm:${var.region}:${var.account_id}:parameter/*"
+    }
+  ]
+})
+}-
