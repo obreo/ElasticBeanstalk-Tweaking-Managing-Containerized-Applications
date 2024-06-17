@@ -178,12 +178,12 @@ There are two methods to call environment variables in Elastic Beanstalk for Doc
    2. Using .env file along with docker-compose.yml file in a zip.
 In case the application requires building with the envrionment variables existed, we can do one of the following:
 * Deploying Dockerfile in Zip to elastic beanstalk:
-      1. We can set limited credentials in the dockerfile as ENV, install aws cli during build step, create the .aws configurations and credentials in the build image, then call SSM parameter store and store the key=values in .env file.
-      2. Build the application using the .env, then copy the neccessary files including .env in the new image.
+   1. We can set limited credentials in the dockerfile as ENV, install aws cli during build step, create the .aws configurations and credentials in the build image, then call SSM parameter store and store the key=values in .env file.
+   2. Build the application using the .env, then copy the neccessary files including .env in the new image.
 * Deploying docker-compose.yml file:
-      1. Call environment variables using SSM parameter store and store them in .env file.
-      2. Let dockerfile build the image using the source code and .env files in a builder image.
-      3. Copy the neccessary files including the .env file to the ECR regsitry if willing to include the .env with the base image. OR exclude the .env file from the final docker image, push it to ECR, then push a zip file includes the docker-compose.yml and .env file in a secured s3 bucket. The later option is more seucred.
+   1. Call environment variables using SSM parameter store and store them in .env file.
+   2. Let dockerfile build the image using the source code and .env files in a builder image.
+   3. Copy the neccessary files including the .env file to the ECR regsitry if willing to include the .env with the base image. OR exclude the .env file from the final docker image, push it to ECR, then push a zip file includes the docker-compose.yml and .env file in a secured s3 bucket. The later option is more seucred.
 
 ### DNS setup
 
