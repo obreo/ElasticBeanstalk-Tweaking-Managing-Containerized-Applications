@@ -50,6 +50,7 @@ Platform Hooks are also used to configure the deployment lifecycle - such as tra
 These are two files that are placed in the source code, both of these files are used to manage *compiling/building* the applciation - in case of Buildfile - and starting/running the application on runtime - in case of Profile. Each of these files can be defined by adding them in the application directory on the instance and set the commands using key:value method.
 
 Deciding whether and when to use these features depends on realising the required phase to run your script within the order of running the extenions:
+
 ![Order of running extensions](https://docs.aws.amazon.com/images/elasticbeanstalk/latest/dg/images/platforms-linux-extend-order.png)
 
 For more details:
@@ -176,10 +177,10 @@ There are two methods to call environment variables in Elastic Beanstalk for Doc
    1. Using environment properties from elastic beanstalk environment's dashboard.
    2. Using .env file along with docker-compose.yml file in a zip.
 In case the application requires building with the envrionment variables existed, we can do one of the following:
-   1. Deploying Dockerfile in Zip to elastic beanstalk:
+* Deploying Dockerfile in Zip to elastic beanstalk:
       1. We can set limited credentials in the dockerfile as ENV, install aws cli during build step, create the .aws configurations and credentials in the build image, then call SSM parameter store and store the key=values in .env file.
       2. Build the application using the .env, then copy the neccessary files including .env in the new image.
-   2. Deploying docker-compose.yml file:
+* Deploying docker-compose.yml file:
       1. Call environment variables using SSM parameter store and store them in .env file.
       2. Let dockerfile build the image using the source code and .env files in a builder image.
       3. Copy the neccessary files including the .env file to the ECR regsitry if willing to include the .env with the base image. OR exclude the .env file from the final docker image, push it to ECR, then push a zip file includes the docker-compose.yml and .env file in a secured s3 bucket. The later option is more seucred.
